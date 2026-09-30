@@ -9,7 +9,7 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 | Mode | Page | État |
 |------|------|------|
 | Mode musical | `Tournois/musique.html` | Disponible |
-| Pokémon | - | Bientôt |
+| Pokémon | `Tournois/pokemon.html` | Disponible |
 
 ## Arborescence
 
@@ -18,9 +18,13 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 ├── index.html            Menu de sélection du tournoi
 ├── Ressource/
 │   ├── style.css         Styles partagés par tous les tournois
-│   └── tournoi.js        Moteur de tournoi (groupes, tableau, sauvegarde)
+│   ├── tournoi.js        Moteur de tournoi (groupes, tableau, sauvegarde)
+│   └── Pokemon/
+│       ├── pokemon.txt       Liste des Pokémon (une ligne par Pokémon : « 0001 Bulbizarre »)
+│       └── genPokemon.txt    Plages de numéros par génération (« Gen1:1-151 »)
 └── Tournois/
-    └── musique.html      Tournoi musical
+    ├── musique.html      Tournoi musical
+    └── pokemon.html      Tournoi Pokémon
 ```
 
 ## Utiliser le mode musical
@@ -32,9 +36,18 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 
 > La sélection d'un dossier fonctionne sur ordinateur. La plupart des navigateurs mobiles ne la proposent pas.
 
-## Réglages
+## Utiliser le mode Pokémon
 
-- **Musiques par groupe** : nombre de musiques par groupe (2 minimum, 4 par défaut).
+1. Ouvre la page du mode Pokémon : la liste est lue automatiquement dans `Ressource/Pokemon/pokemon.txt`, sans dossier à choisir.
+2. Coche les **générations** qui participent (toutes par défaut). Les cases viennent de `Ressource/Pokemon/genPokemon.txt` : une ligne `Gen1:1-151` crée une case, et « Autres numéros » regroupe les Pokémon hors de toutes les plages. Si un numéro est dans deux plages, la première ligne l'emporte.
+3. Règle le tournoi et lance-le : les réglages, le déroulement et la sauvegarde sont les mêmes que pour le mode musical.
+4. Chaque carte affiche, grâce à [PokéAPI](https://pokeapi.co) : l'illustration officielle, le numéro, les types, la catégorie, la taille, le poids, les statistiques de base avec leur total, et un bouton pour écouter le cri.
+
+Le site a besoin d'internet pour PokéAPI. Si l'API ne répond pas, la carte l'indique et tu peux quand même voter d'après le nom. La sauvegarde du mode Pokémon ne demande aucun dossier : elle contient directement les Pokémon encore en lice.
+
+## Réglages (valables pour les deux modes)
+
+- **Musiques (ou Pokémon) par groupe** : nombre d'éléments par groupe (2 minimum, 4 par défaut).
 - **Tableau Upper/Lower Bracket** : active ou désactive le tableau final.
 - **Le tableau commence à** : 16ème, 8ème, 4ème ou 2ème de finale. Ce réglage disparaît si le tableau est désactivé.
 - **Points par victoire** : 3 par défaut.
@@ -62,7 +75,7 @@ Si le nombre de musiques n'est pas une puissance de 2, l'une d'elles passe direc
 
 ### 1 contre 1 pur
 
-Désactive le tableau et mets **2 musiques par groupe** : chaque groupe est un seul duel, c'est de l'élimination directe.
+Désactive le tableau et mets **2 éléments par groupe** : chaque groupe est un seul duel, c'est de l'élimination directe.
 
 ## Sauvegarde
 

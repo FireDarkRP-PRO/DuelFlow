@@ -36,3 +36,15 @@ input[type=number]{font:inherit;padding:8px 10px;border-radius:8px;border:1px so
 .case{flex-direction:row;align-items:center;gap:8px}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;grid-column:1/-1}
 select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bord);background:var(--fond);color:var(--texte)}
+.pokeimg{width:180px;height:180px;object-fit:contain;border-radius:50%;background:radial-gradient(circle,#3d2f52,transparent 70%)}
+.pokeimg.vide{display:grid;place-items:center;color:var(--doux);font-size:2rem}
+.numero{margin:0;color:var(--doux);font-size:.9rem}
+.corps{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.corps p{margin:0}
+.types{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.type{padding:2px 12px;border-radius:999px;font-size:.85rem;font-weight:700}
+.faits{color:var(--doux);font-size:.9rem}
+.stats{width:100%;display:grid;grid-template-columns:auto 2.2rem 1fr;gap:4px 8px;align-items:center;font-size:.8rem;color:var(--doux);text-align:left}
+.barre-stat{height:6px;border-radius:3px;background:var(--bord);overflow:hidden}
+.barre-stat i{display:block;height:100%;background:var(--accent)}
+.grille-gen{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px}
