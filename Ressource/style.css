@@ -48,3 +48,4 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bo
 .barre-stat{height:6px;border-radius:3px;background:var(--bord);overflow:hidden}
 .barre-stat i{display:block;height:100%;background:var(--accent)}
 .grille-gen{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px}
+.duel.multi{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}

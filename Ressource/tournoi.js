@@ -3,7 +3,8 @@
    P = éléments par groupe, X = "Xème de finale" (le tableau démarre à X × 2),
    Y = points par victoire, Z = points perdus par défaite,
    tableau = false : pas d'Upper/Lower Bracket, les phases de groupes continuent jusqu'à un seul gagnant
-   (avec P = 2 : 1 contre 1 pur).
+   (avec P = 2 : 1 contre 1 pur). Sans tableau, le titre indique le stade (16ème, 8ème, quart, demi, finale).
+   rapide = true : chaque groupe est affiché en entier et on clique sur le meilleur (pas de 1 contre 1 répétés).
    snapshot() donne l'état à sauvegarder : uniquement les éléments NON éliminés
    (liste unique en phase de groupes ; listes Upper et Lower séparées dans le tableau).
    Reprise : create(items, params, onEliminate, reprise) avec un ancien snapshot adapté. */
@@ -15,7 +16,7 @@
     const pairsOf = l => { const pairs = []; for (let i = 0; i + 1 < l.length; i += 2) pairs.push([l[i], l[i + 1]]); return { pairs, rest: l.length % 2 ? [l[l.length - 1]] : [] }; };
     const dropPairs = (lb, drops) => { const n = Math.min(lb.length, drops.length); return { pairs: Array.from({ length: n }, (_, i) => [lb[i], drops[i]]), rest: [...lb.slice(n), ...drops.slice(n)] }; };
   
-    function create(items, { P = 4, X = 8, Y = 3, Z = 0, tableau = true } = {}, onEliminate = () => {}, reprise = null) {
+    function create(items, { P = 4, X = 8, Y = 3, Z = 0, tableau = true, rapide = false } = {}, onEliminate = () => {}, reprise = null) {
       const dead = new Set();
       const elim = m => { dead.add(m); onEliminate(m); };
       let ck = { etape: 'groupes', phase: 1, gs: [[...items]], g0: 0, g: 0, winners: [] };
@@ -33,6 +34,7 @@
       // Tous contre tous. Égalité en tête : les ex aequo rejouent entre eux (départage).
       function* group(members, ctx) {
         if (members.length === 1) return members[0];
+        if (rapide) return yield { kind: 'group', ...ctx, membres: [...members], n: 1, total: 1 };
         const sc = Object.fromEntries(members.map(m => [m, 0]));
         const duels = [];
         members.forEach((a, i) => members.slice(i + 1).forEach(b => duels.push([a, b])));
@@ -62,13 +64,14 @@
           let pool = shuffle(items), phase = (reprise && reprise.phase) || 1;
           let reste = reprise && reprise.etape === 'groupes' && reprise.restants ? reprise : null;
           while (reste || ((!tableau || pool.length > 2 * X) && pool.length > 1)) {
-            let gs, winners, g0;
+            let gs, winners, g0, debut;
             if (reste) { // reprise en plein milieu d'une phase : groupes déjà joués conservés
-              gs = reste.restants.map(g => [...g]); winners = [...reste.gagnants]; g0 = winners.length; reste = null;
-            } else { gs = split(pool, P); winners = []; g0 = 0; }
-            ck = { etape: 'groupes', phase, gs, g0, g: 0, winners };
+              gs = reste.restants.map(g => [...g]); winners = [...reste.gagnants]; g0 = winners.length; debut = reste.debut || winners.length + gs.flat().length; reste = null;
+            } else { gs = split(pool, P); winners = []; g0 = 0; debut = pool.length; }
+            const stade = !tableau && debut <= 32 ? stageName(pow2(debut)) : '';
+            ck = { etape: 'groupes', phase, gs, g0, g: 0, winners, debut };
             for (let g = 0; g < gs.length; g++) {
-              const w = yield* group(gs[g], { phase, g: g0 + g + 1, groups: g0 + gs.length });
+              const w = yield* group(gs[g], { phase, g: g0 + g + 1, groups: g0 + gs.length, stade });
               gs[g].forEach(m => m !== w && elim(m));
               winners.push(w); ck.g = g + 1;
             }
@@ -119,7 +122,7 @@
           if (cur.done) return { etape: 'termine', champion: cur.value };
           if (ck.etape === 'groupes') {
             const restants = ck.gs.slice(ck.g).map(g => [...g]), gagnants = [...ck.winners];
-            return { etape: 'groupes', phase: ck.phase, gagnants, restants, musiques: [...gagnants, ...restants.flat()] };
+            return { etape: 'groupes', phase: ck.phase, debut: ck.debut, gagnants, restants, musiques: [...gagnants, ...restants.flat()] };
           }
           return { etape: 'bracket', upper: [...ck.ub], lower: [...ck.lb], r: ck.r };
         }
@@ -127,7 +130,7 @@
     }
   
     const libelle = d => d.kind === 'group'
-      ? `Phase d'élimination · Phase ${d.phase}, Groupe ${d.g} sur ${d.groups}${d.tiebreak ? ' · Départage' : ''}`
+      ? `${d.stade ? d.stade + ' · ' : ''}Phase d'élimination · Phase ${d.phase}, Groupe ${d.g} sur ${d.groups}${d.tiebreak ? ' · Départage' : ''}`
       : `${d.side}${d.stage ? ' · ' + d.stage : ''}`;
   
     return { create, libelle };

@@ -52,6 +52,7 @@ Le site a besoin d'internet pour PokéAPI. Si l'API ne répond pas, la carte l'i
 - **Musiques (ou Pokémon) par groupe** : nombre d'éléments par groupe (2 minimum, 4 par défaut).
 - **Tableau Upper/Lower Bracket** : active ou désactive le tableau final.
 - **Le tableau commence à** : 16ème, 8ème, 4ème ou 2ème de finale. Ce réglage disparaît si le tableau est désactivé.
+- **Groupe rapide** : au lieu de faire tous les 1 contre 1 d'un groupe, le site affiche tout le groupe d'un coup et tu cliques sur le meilleur (touches 1, 2, 3… aussi). Les réglages de points disparaissent alors. Ça concerne seulement les phases de groupes : le tableau reste en duels.
 - **Points par victoire** : 3 par défaut.
 - **Points perdus par défaite** : 0 par défaut.
 
@@ -64,6 +65,8 @@ Les points de victoire et de défaite ne peuvent pas être tous les deux à 0, s
 Les éléments sont mélangés puis répartis en groupes. Dans chaque groupe, **chacun affronte chacun** : une victoire rapporte des points, une défaite en retire. Le meilleur score du groupe passe à la phase suivante, les autres sont éliminés. En cas d'égalité en tête, les ex aequo rejouent entre eux (« Départage »).
 
 Les gagnants sont ensuite mélangés et reformés en nouveaux groupes (phase 2, 3...). L'écran indique par exemple : *Phase d'élimination · Phase 1, Groupe 4 sur 13*.
+
+Si le tableau est désactivé, le titre affiche aussi le stade une fois que 32 éléments ou moins sont en lice : *16ème de finale*, *8ème de finale*, *Quart de finale*, *Demi-finale*, puis *Finale*.
 
 ### Tableau Upper / Lower Bracket
 
@@ -94,6 +97,6 @@ Limite : un groupe ou un tour en cours est rejoué depuis son début à la repri
 ## Ajouter un nouveau tournoi
 
 1. Crée une page dans `Tournois/` (par exemple `films.html`) qui charge `../Ressource/style.css` et `../Ressource/tournoi.js`.
-2. Utilise le moteur : `Tournoi.create(elements, { P, X, Y, Z, tableau }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
+2. Utilise le moteur : `Tournoi.create(elements, { P, X, Y, Z, tableau, rapide }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
 3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)`, récupère l'état à sauvegarder avec `t.snapshot()`.
 4. Ajoute une tuile vers la nouvelle page dans `index.html`.

@@ -27,6 +27,7 @@
         <label class="champ">Pokémon par groupe
           <input type="number" id="P" min="2" value="4"></label>
         <label class="champ case"><input type="checkbox" id="tableau" checked> Tableau Upper/Lower Bracket</label>
+        <label class="champ case"><input type="checkbox" id="rapide"> Groupe rapide : on voit tout le groupe et on clique sur le meilleur</label>
         <label class="champ" id="blocX">Le tableau commence à
           <select id="X">
             <option value="16">16ème de finale</option>
@@ -56,7 +57,7 @@
       <ul class="scores" id="scores"></ul>
     </div>
     <div class="duel" id="cartes"></div>
-    <p class="meta">Raccourcis : touche 1 pour la gauche, touche 2 pour la droite. Données et images : PokéAPI.</p>
+    <p class="meta">Raccourcis : touches 1, 2, 3… dans l'ordre d'affichage. Données et images : PokéAPI.</p>
     <div class="barre">
       <button id="exp">Exporter la sauvegarde</button>
       <button id="quit">Abandonner</button>
@@ -91,7 +92,7 @@ const idDe = k => analyse(k).id;
 const nomDe = k => analyse(k).nom;
 const genDe = k => { const i = gens.findIndex(g => idDe(k) >= g.min && idDe(k) <= g.max); return i < 0 ? 'x' : i; };
 const nomsSave = s => s.etape === 'bracket' ? [...s.upper, ...s.lower] : s.etape === 'groupes' ? s.musiques : [s.champion];
-const lireParams = () => ({ tableau: $('#tableau').checked, P: Math.max(2, +$('#P').value || 4), X: Math.max(1, +$('#X').value || 8), Y: +$('#Y').value, Z: Math.max(0, +$('#Z').value || 0) });
+const lireParams = () => ({ tableau: $('#tableau').checked, rapide: $('#rapide').checked, P: Math.max(2, +$('#P').value || 4), X: Math.max(1, +$('#X').value || 8), Y: +$('#Y').value, Z: Math.max(0, +$('#Z').value || 0) });
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 
 /* Listes : pokemon.txt (« 0001 Bulbizarre »), genPokemon.txt (« Gen1:1-151 »), formesRegionales.txt (« 19;rattata-alola;Rattata d'Alola ») */
@@ -135,7 +136,8 @@ function majInfo() {
   } else return;
   $('#info').textContent = m.join(' ');
   $('#lancer').disabled = save ? false : participants().length < 2;
-  ['P', 'X', 'Y', 'Z', 'tableau'].forEach(k => $('#' + k).disabled = !!save);
+  ['P', 'X', 'Y', 'Z', 'tableau', 'rapide'].forEach(k => $('#' + k).disabled = !!save);
+  document.querySelector('.duo').hidden = $('#rapide').checked;
   document.querySelectorAll('#gens input').forEach(c => c.disabled = !!save);
   $('#regionales').disabled = !!save;
   $('#blocX').hidden = !$('#tableau').checked;
@@ -151,21 +153,22 @@ $('#import').onchange = async e => {
     for (const k of ['P', 'X', 'Y', 'Z']) if (d.params && d.params[k] != null) $('#' + k).value = d.params[k];
     if (!$('#X').value) $('#X').value = '8';
     $('#tableau').checked = !(d.params && d.params.tableau === false);
+    $('#rapide').checked = !!(d.params && d.params.rapide);
     tous.length ? majInfo() : ($('#info').textContent = 'Sauvegarde chargée, lecture de la liste en cours…');
     $('#lancer').disabled = false; $('#retirer').hidden = false;
   } catch (err) { $('#info').textContent = 'Import impossible : ' + err.message; }
   e.target.value = '';
 };
-$('#tableau').onchange = $('#P').oninput = $('#regionales').onchange = majInfo;
+$('#rapide').onchange = $('#tableau').onchange = $('#P').oninput = $('#regionales').onchange = majInfo;
 $('#retirer').onclick = () => { save = null; majInfo(); };
 
 $('#lancer').onclick = () => {
   params = save && save.params ? { ...save.params } : lireParams();
-  if (!(params.Y + params.Z > 0)) { $('#info').textContent = 'Les points de victoire et de défaite ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
+  if (!params.rapide && !(params.Y + params.Z > 0)) { $('#info').textContent = 'Les points de victoire et de défaite ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
   let items, reprise = null;
   if (!save) items = participants();
   else if (save.etape === 'bracket') { items = nomsSave(save); reprise = { etape: 'bracket', ub: save.upper, lb: save.lower, r: save.r }; }
-  else if (save.etape === 'groupes') { items = save.musiques; reprise = { etape: 'groupes', phase: save.phase, restants: save.restants, gagnants: save.gagnants }; }
+  else if (save.etape === 'groupes') { items = save.musiques; reprise = { etape: 'groupes', phase: save.phase, restants: save.restants, gagnants: save.gagnants, debut: save.debut }; }
   else { items = []; reprise = save; }
   t = Tournoi.create(items, params, () => {}, reprise);
   afficher();
@@ -244,10 +247,11 @@ function afficher() {
   if (!d) return fin();
   $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
   $('#etiquette').textContent = Tournoi.libelle(d);
-  $('#progression').textContent = `Duel ${d.n} sur ${d.total}`;
+  $('#progression').textContent = d.membres ? `Groupe rapide : clique sur le meilleur parmi ${d.membres.length}` : `Duel ${d.n} sur ${d.total}`;
   const ul = $('#scores'); ul.replaceChildren();
   if (d.scores) Object.entries(d.scores).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => ul.append(el('li', null, `${nomDe(k)} : ${v} pt`)));
-  $('#cartes').replaceChildren(carte(d.a, true), carte(d.b, true));
+  $('#cartes').className = d.membres ? 'duel multi' : 'duel';
+  $('#cartes').replaceChildren(...(d.membres || [d.a, d.b]).map(x => carte(x, true)));
 }
 
 function choisir(k) { if (cri) cri.pause(); t.choose(k); afficher(); }
@@ -267,8 +271,8 @@ $('#nouveau').onclick = () => { t = null; save = null; $('#fin').hidden = true; 
 
 document.addEventListener('keydown', e => {
   if (!t || !t.duel || $('#duel').hidden || ['INPUT', 'SELECT'].includes(e.target.tagName)) return;
-  if (e.key === '1') choisir(t.duel.a);
-  if (e.key === '2') choisir(t.duel.b);
+  const liste = t.duel.membres || [t.duel.a, t.duel.b], x = liste[parseInt(e.key, 10) - 1];
+  if (x) choisir(x);
 });
 window.onbeforeunload = () => (t && t.duel ? '' : undefined);
 $('#blocX').hidden = false;
