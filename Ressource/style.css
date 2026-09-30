@@ -49,3 +49,16 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bo
 .barre-stat i{display:block;height:100%;background:var(--accent)}
 .grille-gen{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px}
 .duel.multi{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.ligne{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 24px;grid-column:1/-1}
+.ligne .case{padding-bottom:10px}
+#podium{margin-bottom:16px}
+.podium{display:flex;justify-content:center;align-items:flex-end;gap:10px;margin-top:12px}
+.place{flex:1 1 0;max-width:220px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.place .nom{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.place .pokeimg{width:96px;height:96px}
+.place .disque{width:64px;height:64px}
+.place audio{width:100%}
+.socle{width:100%;display:grid;place-items:center;font-size:1.8rem;background:var(--carte);border:1px solid var(--bord);border-radius:10px 10px 0 0}
+.p1{order:2}.p2{order:1}.p3{order:3}
+.p1 .socle{height:110px;border-color:var(--accent)}.p2 .socle{height:80px}.p3 .socle{height:60px}
+@media(max-width:520px){.place .pokeimg{width:72px;height:72px}.place .disque{width:48px;height:48px}}

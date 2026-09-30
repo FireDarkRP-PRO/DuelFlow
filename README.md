@@ -50,8 +50,9 @@ Le site a besoin d'internet pour PokéAPI. Si l'API ne répond pas, la carte l'i
 ## Réglages (valables pour les deux modes)
 
 - **Musiques (ou Pokémon) par groupe** : nombre d'éléments par groupe (2 minimum, 4 par défaut).
-- **Tableau Upper/Lower Bracket** : active ou désactive le tableau final.
-- **Le tableau commence à** : 16ème, 8ème, 4ème ou 2ème de finale. Ce réglage disparaît si le tableau est désactivé.
+- **Qualifiés par groupe** : nombre d'éléments qui passent à la phase suivante (1 minimum, toujours moins que la taille du groupe). Avec 2 par groupe, il n'y a qu'un qualifié possible.
+- **Tableau Upper/Lower Bracket** : active ou désactive le tableau final. La case est sur la même ligne que le choix du stade de départ.
+- **Le tableau commence à** : 16ème, 8ème, 4ème ou 2ème de finale. Le tableau démarre avec **exactement** 32, 16, 8 ou 4 éléments : la dernière phase de groupes ajuste le nombre de qualifiés pour tomber pile (si peu d'éléments participent, le tableau démarre simplement plus bas). Ce réglage disparaît si le tableau est désactivé.
 - **Groupe rapide** : au lieu de faire tous les 1 contre 1 d'un groupe, le site affiche tout le groupe d'un coup et tu cliques sur le meilleur (touches 1, 2, 3… aussi). Les réglages de points disparaissent alors. Ça concerne seulement les phases de groupes : le tableau reste en duels.
 - **Points par victoire** : 3 par défaut.
 - **Points perdus par défaite** : 0 par défaut.
@@ -62,9 +63,9 @@ Les points de victoire et de défaite ne peuvent pas être tous les deux à 0, s
 
 ### Phases de groupes
 
-Les éléments sont mélangés puis répartis en groupes. Dans chaque groupe, **chacun affronte chacun** : une victoire rapporte des points, une défaite en retire. Le meilleur score du groupe passe à la phase suivante, les autres sont éliminés. En cas d'égalité en tête, les ex aequo rejouent entre eux (« Départage »).
+Les éléments sont mélangés puis répartis en groupes. Dans chaque groupe, **chacun affronte chacun** : une victoire rapporte des points, une défaite en retire. Les meilleurs scores du groupe passent à la phase suivante, les autres sont éliminés. En cas d'égalité à la frontière des qualifiés, les ex aequo rejouent entre eux (« Départage »). En groupe rapide avec plusieurs qualifiés, on clique d'abord le meilleur, puis le suivant, etc.
 
-Les gagnants sont ensuite mélangés et reformés en nouveaux groupes (phase 2, 3...). L'écran indique par exemple : *Phase d'élimination · Phase 1, Groupe 4 sur 13*.
+Les qualifiés (un ou plusieurs par groupe, selon le réglage) sont ensuite mélangés et reformés en nouveaux groupes (phase 2, 3...). L'écran indique par exemple : *Phase d'élimination · Phase 1, Groupe 4 sur 13*.
 
 Si le tableau est désactivé, le titre affiche aussi le stade une fois que 32 éléments ou moins sont en lice : *16ème de finale*, *8ème de finale*, *Quart de finale*, *Demi-finale*, puis *Finale*.
 
@@ -78,6 +79,10 @@ Quand il reste assez peu d'éléments pour atteindre le stade choisi (par exempl
 
 Si le nombre d'éléments n'est pas une puissance de 2, l'un d'eux passe directement au tour suivant.
 
+### Podium
+
+À la fin d'un tournoi avec tableau, un podium s'affiche : 1er = le gagnant, 2e = le perdant de la finale des finales (Upper contre Lower), 3e = le perdant de la finale du Lower Bracket. Sans tableau, seul le gagnant est affiché.
+
 ### 1 contre 1 pur
 
 Désactive le tableau et mets **2 éléments par groupe** : chaque groupe est un seul duel, c'est de l'élimination directe.
@@ -86,9 +91,9 @@ Désactive le tableau et mets **2 éléments par groupe** : chaque groupe est un
 
 Le bouton **Exporter la sauvegarde** télécharge un fichier JSON. Il ne contient que les éléments **encore en lice**, ce qui permet d'ignorer les MP3 ajoutés au dossier après le début du tournoi.
 
-- **Phase de groupes** : les gagnants des groupes déjà joués et les groupes restants sont conservés. Une reprise au groupe 4 sur 13 revient au groupe 4 sur 13.
+- **Phase de groupes** : les qualifiés des groupes déjà joués et les groupes restants sont conservés. Une reprise au groupe 4 sur 13 revient au groupe 4 sur 13.
 - **Tableau** : les listes Upper et Lower sont enregistrées séparément.
-- Les réglages du tournoi sont enregistrés aussi.
+- Les réglages du tournoi (dont les qualifiés par groupe) sont enregistrés aussi, ainsi que la 3e place du podium une fois connu.
 
 Pour reprendre le mode musical : à l'arrivée sur la page, ajoute le fichier de sauvegarde **et** choisis le même dossier de musiques. Si une musique de la sauvegarde n'est plus dans le dossier, un message la signale et remplace son lecteur audio. Pour le mode Pokémon, le fichier de sauvegarde suffit.
 
@@ -97,6 +102,6 @@ Limite : un groupe ou un tour en cours est rejoué depuis son début à la repri
 ## Ajouter un nouveau tournoi
 
 1. Crée une page dans `Tournois/` (par exemple `films.html`) qui charge `../Ressource/style.css` et `../Ressource/tournoi.js`.
-2. Utilise le moteur : `Tournoi.create(elements, { P, X, Y, Z, tableau, rapide }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
-3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)`, récupère l'état à sauvegarder avec `t.snapshot()`.
+2. Utilise le moteur : `Tournoi.create(elements, { P, Q, X, Y, Z, tableau, rapide }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
+3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)`, récupère l'état à sauvegarder avec `t.snapshot()`, et le podium final avec `t.podium` (`premier`, `deuxieme`, `troisieme`).
 4. Ajoute une tuile vers la nouvelle page dans `index.html`.
