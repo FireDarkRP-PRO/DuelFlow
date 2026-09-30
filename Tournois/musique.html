@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tournoi musical</title>
+<link rel="stylesheet" href="../Ressource/style.css">
+</head>
+<body>
+<main>
+  <p class="meta"><a href="../index.html">← Tous les tournois</a></p>
+  <h1>Tournoi musical</h1>
+
+  <section id="setup">
+    <p class="sous">Tes MP3 s'affrontent deux par deux jusqu'à ton titre préféré.</p>
+    <div class="panneau">
+      <div class="params">
+        <label class="champ">Sauvegarde (facultatif) : sans elle, c'est un nouveau tournoi
+          <input type="file" id="import" accept=".json,application/json">
+        </label>
+        <label class="champ">Dossier de musiques : avec une sauvegarde, choisis le même dossier qu'au départ
+          <input type="file" id="dossier" webkitdirectory multiple>
+        </label>
+      </div>
+      <div class="params">
+        <label class="champ">Musiques par groupe
+          <input type="number" id="P" min="2" value="4"></label>
+        <label class="champ case"><input type="checkbox" id="tableau" checked> Tableau Upper/Lower Bracket</label>
+        <label class="champ" id="blocX">Le tableau commence à
+          <select id="X">
+            <option value="16">16ème de finale</option>
+            <option value="8" selected>8ème de finale</option>
+            <option value="4">4ème de finale (quarts)</option>
+            <option value="2">2ème de finale (demi-finales)</option>
+          </select></label>
+        <div class="duo">
+          <label class="champ">Points par victoire
+            <input type="number" id="Y" value="3"></label>
+          <label class="champ">Points perdus par défaite
+            <input type="number" id="Z" min="0" value="0"></label>
+        </div>
+      </div>
+      <p class="meta" id="info" aria-live="polite"></p>
+      <div class="barre">
+        <button class="principal" id="lancer" disabled>Lancer le tournoi</button>
+        <button id="retirer" hidden>Retirer la sauvegarde</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="duel" hidden>
+    <div class="panneau">
+      <div class="etiquette" id="etiquette"></div>
+      <div class="meta" id="progression"></div>
+      <ul class="scores" id="scores"></ul>
+    </div>
+    <div class="duel" id="cartes"></div>
+    <p class="meta">Raccourcis : touche 1 pour la gauche, touche 2 pour la droite.</p>
+    <div class="barre">
+      <button id="exp">Exporter la sauvegarde</button>
+      <button id="quit">Abandonner</button>
+    </div>
+  </section>
+
+  <section id="fin" hidden>
+    <div class="panneau carte" id="champion"></div>
+    <div class="barre">
+      <button id="exp2">Exporter la sauvegarde</button>
+      <button class="principal" id="nouveau">Nouveau tournoi</button>
+    </div>
+  </section>
+</main>
+
+<script src="../Ressource/tournoi.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const TYPE = 'tournoi-musique';
+let fichiers = new Map(), save = null, params = {}, t = null;
+const urls = new Map();
+const nom = f => f.name.replace(/\.mp3$/i, '');
+const url = n => {
+  if (!fichiers.has(n)) return null;
+  if (!urls.has(n)) urls.set(n, URL.createObjectURL(fichiers.get(n)));
+  return urls.get(n);
+};
+const nomsSave = s => s.etape === 'bracket' ? [...s.upper, ...s.lower] : s.etape === 'groupes' ? s.musiques : [s.champion];
+const lireParams = () => ({ tableau: $('#tableau').checked, P: Math.max(2, +$('#P').value || 4), X: Math.max(1, +$('#X').value || 8), Y: +$('#Y').value, Z: Math.max(0, +$('#Z').value || 0) });
+
+function majInfo() {
+  const m = [];
+  m.push(fichiers.size ? `${fichiers.size} MP3 trouvés dans le dossier.` : 'Aucun dossier choisi.');
+  if (save) {
+    if (save.etape === 'groupes' && save.restants) m.push(`Reprise à la phase ${save.phase}, groupe ${save.gagnants.length + 1} sur ${save.gagnants.length + save.restants.length}.`);
+    const noms = nomsSave(save), manquants = noms.filter(n => !fichiers.has(n));
+    m.push(`Sauvegarde chargée : ${noms.length} musique(s) encore en lice. Les MP3 ajoutés depuis le début du tournoi sont ignorés.`);
+    if (fichiers.size && manquants.length)
+      m.push(`Attention : ${manquants.length} musique(s) de la sauvegarde introuvable(s) dans ce dossier (${manquants.slice(0, 3).join(', ')}${manquants.length > 3 ? '…' : ''}). Un message remplacera leur son.`);
+  } else if (fichiers.size) m.push('Nouveau tournoi : tous ces MP3 participent.');
+  if (!save && !$('#tableau').checked) m.push(+$('#P').value === 2 ? 'Sans tableau et avec 2 musiques par groupe : 1 contre 1 pur.' : 'Sans tableau : les groupes s\'enchaînent jusqu\'à un seul gagnant (mets 2 musiques par groupe pour du 1 contre 1 pur).');
+  $('#info').textContent = m.join(' ');
+  $('#lancer').disabled = !fichiers.size || (!save && fichiers.size < 2);
+  ['P', 'X', 'Y', 'Z', 'tableau'].forEach(k => $('#' + k).disabled = !!save);
+  $('#blocX').hidden = !$('#tableau').checked;
+  $('#retirer').hidden = !save;
+}
+
+$('#dossier').onchange = e => {
+  fichiers = new Map(); urls.clear();
+  [...e.target.files].filter(f => /\.mp3$/i.test(f.name)).forEach(f => fichiers.set(nom(f), f));
+  majInfo();
+};
+
+$('#import').onchange = async e => {
+  try {
+    const d = await Sauvegarde.importer(e.target.files[0], TYPE);
+    const ok = (d.etape === 'groupes' && Array.isArray(d.musiques) && (!d.restants || Array.isArray(d.gagnants))) || (d.etape === 'bracket' && Array.isArray(d.upper) && Array.isArray(d.lower)) || (d.etape === 'termine' && d.champion);
+    if (!ok) throw new Error('sauvegarde illisible ou incomplète.');
+    save = d;
+    for (const k of ['P', 'X', 'Y', 'Z']) if (d.params && d.params[k] != null) $('#' + k).value = d.params[k];
+    if (!$('#X').value) $('#X').value = '8';
+    $('#tableau').checked = !(d.params && d.params.tableau === false);
+    majInfo();
+  } catch (err) { $('#info').textContent = 'Import impossible : ' + err.message; }
+  e.target.value = '';
+};
+
+$('#tableau').onchange = $('#P').oninput = majInfo;
+$('#retirer').onclick = () => { save = null; majInfo(); };
+
+$('#lancer').onclick = () => {
+  params = save && save.params ? { ...save.params } : lireParams();
+  if (!(params.Y + params.Z > 0)) { $('#info').textContent = 'Y et Z ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
+  let items, reprise = null;
+  if (!save) items = [...fichiers.keys()];
+  else if (save.etape === 'bracket') { items = nomsSave(save); reprise = { etape: 'bracket', ub: save.upper, lb: save.lower, r: save.r }; }
+  else if (save.etape === 'groupes') { items = save.musiques; reprise = { etape: 'groupes', phase: save.phase, restants: save.restants, gagnants: save.gagnants }; }
+  else { items = []; reprise = save; }
+  t = Tournoi.create(items, params, () => {}, reprise);
+  afficher();
+};
+
+function creerAudio(n, disque) {
+  const a = document.createElement('audio');
+  a.controls = true; a.preload = 'none'; a.src = url(n);
+  a.onplay = () => { document.querySelectorAll('audio').forEach(x => x !== a && x.pause()); disque.classList.add('joue'); };
+  a.onpause = a.onended = () => disque.classList.remove('joue');
+  return a;
+}
+
+function carte(n, avecBouton) {
+  const c = document.createElement('article');
+  c.className = 'panneau carte';
+  const disque = document.createElement('div'); disque.className = 'disque';
+  const h = document.createElement('h2'); h.textContent = n;
+  c.append(disque, h);
+  if (url(n)) c.append(creerAudio(n, disque));
+  else {
+    const p = document.createElement('p'); p.className = 'manque';
+    p.textContent = 'Fichier introuvable : cette musique a été supprimée, renommée ou déplacée depuis la sauvegarde.';
+    c.append(p);
+  }
+  if (avecBouton) {
+    const b = document.createElement('button');
+    b.className = 'principal'; b.textContent = 'Choisir'; b.onclick = () => choisir(n);
+    c.append(b);
+  }
+  return c;
+}
+
+function afficher() {
+  const d = t.duel;
+  if (!d) return fin();
+  $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
+  $('#etiquette').textContent = Tournoi.libelle(d);
+  $('#progression').textContent = `Duel ${d.n} sur ${d.total}`;
+  const ul = $('#scores'); ul.replaceChildren();
+  if (d.scores) Object.entries(d.scores).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+    const li = document.createElement('li'); li.textContent = `${k} : ${v} pt`; ul.append(li);
+  });
+  $('#cartes').replaceChildren(carte(d.a, true), carte(d.b, true));
+}
+
+function choisir(n) {
+  document.querySelectorAll('audio').forEach(x => x.pause());
+  t.choose(n);
+  afficher();
+}
+
+function fin() {
+  $('#duel').hidden = true; $('#fin').hidden = false;
+  const c = carte(t.champion, false);
+  const h = document.createElement('div'); h.className = 'etiquette'; h.textContent = 'Ta musique préférée';
+  $('#champion').replaceChildren(h, ...c.childNodes);
+}
+
+function exporter() {
+  Sauvegarde.exporter(TYPE, { params, ...t.snapshot() }, 'sauvegarde-tournoi-musical.json');
+}
+
+$('#exp').onclick = $('#exp2').onclick = exporter;
+$('#quit').onclick = () => {
+  if (!confirm("Abandonner le tournoi en cours ? Pense à exporter la sauvegarde avant.")) return;
+  t = null; save = null; $('#duel').hidden = true; $('#setup').hidden = false; majInfo();
+};
+$('#nouveau').onclick = () => { t = null; save = null; $('#fin').hidden = true; $('#setup').hidden = false; majInfo(); };
+
+document.addEventListener('keydown', e => {
+  if (!t || !t.duel || $('#duel').hidden || ['INPUT', 'AUDIO'].includes(e.target.tagName)) return;
+  if (e.key === '1') choisir(t.duel.a);
+  if (e.key === '2') choisir(t.duel.b);
+});
+window.onbeforeunload = () => (t && t.duel ? '' : undefined);
+majInfo();
+</script>
+</body>
+</html>
