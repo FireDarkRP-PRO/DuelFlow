@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tournoi d'images</title>
+<link rel="stylesheet" href="../Ressource/style.css">
+<style>
+.photo{width:100%;height:320px;object-fit:contain;border-radius:10px;background:var(--fond);cursor:zoom-in}
+.duel.multi .photo{height:220px}
+.place .photo{height:96px;cursor:default}
+#champion .photo{height:420px}
+@media(max-width:520px){.place .photo{height:72px}}
+dialog.zoom{background:transparent;border:0;padding:0;max-width:96vw;max-height:96vh}
+dialog.zoom::backdrop{background:rgba(0,0,0,.85)}
+dialog.zoom img{max-width:96vw;max-height:96vh;object-fit:contain;display:block;cursor:zoom-out}
+</style>
+</head>
+<body>
+<main>
+  <p class="meta"><a href="../index.html">← Tous les tournois</a></p>
+  <h1>Tournoi d'images</h1>
+
+  <section id="setup">
+    <p class="sous">Tes images s'affrontent deux par deux jusqu'à ta préférée.</p>
+    <div class="panneau">
+      <div class="params">
+        <label class="champ">Sauvegarde (facultatif) : sans elle, c'est un nouveau tournoi
+          <input type="file" id="import" accept=".json,application/json">
+        </label>
+        <label class="champ">Dossier d'images : avec une sauvegarde, choisis le même dossier qu'au départ
+          <input type="file" id="dossier" webkitdirectory multiple>
+        </label>
+      </div>
+      <div class="params">
+        <label class="champ">Images par groupe
+          <input type="number" id="P" min="2" value="4"></label>
+        <label class="champ">Qualifiés par groupe (moins que la taille du groupe)
+          <input type="number" id="Q" min="1" value="1"></label>
+        <div class="ligne">
+          <label class="champ case"><input type="checkbox" id="tableau" checked> Tableau Upper/Lower Bracket</label>
+          <label class="champ" id="blocX">Le tableau commence à
+            <select id="X">
+              <option value="16">16ème de finale</option>
+              <option value="8" selected>8ème de finale</option>
+              <option value="4">4ème de finale (quarts)</option>
+              <option value="2">2ème de finale (demi-finales)</option>
+            </select></label>
+        </div>
+        <label class="champ case"><input type="checkbox" id="rapide"> Groupe rapide : on voit tout le groupe et on clique sur la meilleure</label>
+        <div class="duo">
+          <label class="champ">Points par victoire
+            <input type="number" id="Y" value="3"></label>
+          <label class="champ">Points perdus par défaite
+            <input type="number" id="Z" min="0" value="0"></label>
+        </div>
+      </div>
+      <p class="meta" id="info" aria-live="polite"></p>
+      <div class="barre">
+        <button class="principal" id="lancer" disabled>Lancer le tournoi</button>
+        <button id="retirer" hidden>Retirer la sauvegarde</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="duel" hidden>
+    <div class="panneau">
+      <div class="etiquette" id="etiquette"></div>
+      <div class="meta" id="progression"></div>
+      <ul class="scores" id="scores"></ul>
+    </div>
+    <div class="duel" id="cartes"></div>
+    <p class="meta">Raccourcis : touches 1, 2, 3… dans l'ordre d'affichage. Clique sur une image pour l'agrandir.</p>
+    <div class="barre">
+      <button id="exp">Exporter la sauvegarde</button>
+      <button id="quit">Abandonner</button>
+    </div>
+  </section>
+
+  <section id="fin" hidden>
+    <div id="podium" hidden></div>
+    <div class="panneau carte" id="champion"></div>
+    <div class="barre">
+      <button id="exp2">Exporter la sauvegarde</button>
+      <button class="principal" id="nouveau">Nouveau tournoi</button>
+    </div>
+  </section>
+</main>
+
+<dialog class="zoom" id="zoom"><img id="zoomImg" alt=""></dialog>
+
+<script src="../Ressource/tournoi.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const TYPE = 'tournoi-image';
+const EXT = /\.(png|jpe?g|jfif|webp|gif|avif|bmp|svg|apng|ico|tiff?|heic|heif)$/i;
+let fichiers = new Map(), save = null, params = {}, t = null;
+const urls = new Map();
+const estImage = f => (f.type && f.type.startsWith('image/')) || EXT.test(f.name);
+const sansExt = s => s.replace(EXT, '');
+const url = n => {
+  if (!fichiers.has(n)) return null;
+  if (!urls.has(n)) urls.set(n, URL.createObjectURL(fichiers.get(n)));
+  return urls.get(n);
+};
+const nomsSave = s => s.etape === 'bracket' ? [...s.upper, ...s.lower] : s.etape === 'groupes' ? s.musiques : [s.champion];
+const lireParams = () => { const P = Math.max(2, +$('#P').value || 4); return { tableau: $('#tableau').checked, rapide: $('#rapide').checked, P, Q: Math.min(P - 1, Math.max(1, +$('#Q').value || 1)), X: Math.max(1, +$('#X').value || 8), Y: +$('#Y').value, Z: Math.max(0, +$('#Z').value || 0) }; };
+
+function majInfo() {
+  const pv = Math.max(2, +$('#P').value || 4); $('#Q').max = pv - 1; if (+$('#Q').value > pv - 1 || +$('#Q').value < 1) $('#Q').value = Math.min(pv - 1, Math.max(1, +$('#Q').value || 1));
+  const m = [];
+  m.push(fichiers.size ? `${fichiers.size} image(s) trouvée(s) dans le dossier.` : 'Aucun dossier choisi.');
+  if (save) {
+    if (save.etape === 'groupes' && save.restants) m.push(`Reprise à la phase ${save.phase}, groupe ${(save.fait ?? save.gagnants.length) + 1} sur ${(save.fait ?? save.gagnants.length) + save.restants.length}.`);
+    const noms = nomsSave(save), manquants = noms.filter(n => !fichiers.has(n));
+    m.push(`Sauvegarde chargée : ${noms.length} image(s) encore en lice. Les images ajoutées depuis le début du tournoi sont ignorées.`);
+    if (fichiers.size && manquants.length)
+      m.push(`Attention : ${manquants.length} image(s) de la sauvegarde introuvable(s) dans ce dossier (${manquants.slice(0, 3).join(', ')}${manquants.length > 3 ? '…' : ''}). Un message remplacera leur aperçu.`);
+  } else if (fichiers.size) m.push('Nouveau tournoi : toutes ces images participent.');
+  if (!save && !$('#tableau').checked) m.push(+$('#P').value === 2 ? 'Sans tableau et avec 2 images par groupe : 1 contre 1 pur.' : 'Sans tableau : les groupes s\'enchaînent jusqu\'à un seul gagnant (mets 2 images par groupe pour du 1 contre 1 pur).');
+  $('#info').textContent = m.join(' ');
+  $('#lancer').disabled = !fichiers.size || (!save && fichiers.size < 2);
+  ['P', 'Q', 'X', 'Y', 'Z', 'tableau', 'rapide'].forEach(k => $('#' + k).disabled = !!save);
+  document.querySelector('.duo').hidden = $('#rapide').checked;
+  $('#blocX').hidden = !$('#tableau').checked;
+  $('#retirer').hidden = !save;
+}
+
+// Identifiant d'une image : son nom sans extension ; en cas de doublon
+// (ex. a.png et a.jpg, ou même nom dans deux sous-dossiers), on garde
+// le nom complet, puis le chemin relatif si besoin.
+$('#dossier').onchange = e => {
+  urls.forEach(u => URL.revokeObjectURL(u)); urls.clear();
+  fichiers = new Map();
+  const liste = [...e.target.files].filter(estImage).sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
+  const compte = new Map();
+  liste.forEach(f => compte.set(sansExt(f.name), (compte.get(sansExt(f.name)) || 0) + 1));
+  liste.forEach(f => {
+    let cle = sansExt(f.name);
+    if (compte.get(cle) > 1) cle = f.name;
+    if (fichiers.has(cle)) cle = f.webkitRelativePath || f.name;
+    fichiers.set(cle, f);
+  });
+  majInfo();
+};
+
+$('#import').onchange = async e => {
+  try {
+    const d = await Sauvegarde.importer(e.target.files[0], TYPE);
+    const ok = (d.etape === 'groupes' && Array.isArray(d.musiques) && (!d.restants || Array.isArray(d.gagnants))) || (d.etape === 'bracket' && Array.isArray(d.upper) && Array.isArray(d.lower)) || (d.etape === 'termine' && d.champion);
+    if (!ok) throw new Error('sauvegarde illisible ou incomplète.');
+    save = d;
+    for (const k of ['P', 'Q', 'X', 'Y', 'Z']) if (d.params && d.params[k] != null) $('#' + k).value = d.params[k];
+    if (!$('#X').value) $('#X').value = '8';
+    $('#tableau').checked = !(d.params && d.params.tableau === false);
+    $('#rapide').checked = !!(d.params && d.params.rapide);
+    majInfo();
+  } catch (err) { $('#info').textContent = 'Import impossible : ' + err.message; e.target.value = ''; }
+};
+
+$('#rapide').onchange = $('#tableau').onchange = $('#P').oninput = $('#Q').onchange = majInfo;
+$('#retirer').onclick = () => { save = null; $('#import').value = ''; majInfo(); };
+
+$('#lancer').onclick = () => {
+  params = save && save.params ? { ...save.params } : lireParams();
+  if (!params.rapide && !(params.Y + params.Z > 0)) { $('#info').textContent = 'Y et Z ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
+  let items, reprise = null;
+  if (!save) items = [...fichiers.keys()];
+  else if (save.etape === 'bracket') { items = nomsSave(save); reprise = { etape: 'bracket', ub: save.upper, lb: save.lower, r: save.r, troisieme: save.troisieme }; }
+  else if (save.etape === 'groupes') { items = save.musiques; reprise = { etape: 'groupes', phase: save.phase, restants: save.restants, gagnants: save.gagnants, debut: save.debut, fait: save.fait, quotas: save.quotas }; }
+  else { items = []; reprise = save; }
+  t = Tournoi.create(items, params, () => {}, reprise);
+  afficher();
+};
+
+function creerImage(n) {
+  const img = document.createElement('img');
+  img.className = 'photo'; img.alt = n; img.loading = 'lazy'; img.src = url(n);
+  img.onclick = () => { $('#zoomImg').src = img.src; $('#zoomImg').alt = n; $('#zoom').showModal(); };
+  img.onerror = () => {
+    const p = document.createElement('p'); p.className = 'manque';
+    p.textContent = 'Cette image ne peut pas être affichée par ton navigateur (format non pris en charge ?).';
+    img.replaceWith(p);
+  };
+  return img;
+}
+$('#zoom').onclick = () => $('#zoom').close();
+
+function carte(n, avecBouton) {
+  const c = document.createElement('article');
+  c.className = 'panneau carte';
+  const h = document.createElement('h2'); h.textContent = n;
+  if (url(n)) c.append(creerImage(n));
+  else {
+    const p = document.createElement('p'); p.className = 'manque';
+    p.textContent = 'Fichier introuvable : cette image a été supprimée, renommée ou déplacée depuis la sauvegarde.';
+    c.append(p);
+  }
+  c.append(h);
+  if (avecBouton) {
+    const b = document.createElement('button');
+    b.className = 'principal'; b.textContent = 'Choisir'; b.onclick = () => choisir(n);
+    c.append(b);
+  }
+  return c;
+}
+
+function afficher() {
+  const d = t.duel;
+  if (!d) return fin();
+  if (d.kind === 'choix') {
+    $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
+    $('#etiquette').textContent = Tournoi.libelle(d); $('#progression').textContent = '';
+    $('#scores').replaceChildren(); $('#cartes').replaceChildren();
+    return ChoixTableau.ouvrir(d, rep => {
+      if (rep.action === 'retour') {
+        if (!confirm("Retourner aux réglages ? Le tournoi en cours sera abandonné et repartira de zéro avec les mêmes participants.")) return afficher();
+        t = null; save = null; $('#import').value = ''; $('#duel').hidden = true; $('#setup').hidden = false; return majInfo();
+      }
+      t.choose(rep); afficher();
+    });
+  }
+  $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
+  $('#etiquette').textContent = Tournoi.libelle(d);
+  $('#progression').textContent = d.membres ? (d.total > 1 ? `Groupe rapide · qualifiée n°${d.n} sur ${d.total} : clique sur la meilleure parmi ${d.membres.length}` : `Groupe rapide : clique sur la meilleure parmi ${d.membres.length}`) : `Duel ${d.n} sur ${d.total}`;
+  const ul = $('#scores'); ul.replaceChildren();
+  if (d.scores) Object.entries(d.scores).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+    const li = document.createElement('li'); li.textContent = `${k} : ${v} pt`; ul.append(li);
+  });
+  $('#cartes').className = d.membres ? 'duel multi' : 'duel';
+  $('#cartes').replaceChildren(...(d.membres || [d.a, d.b]).map(x => carte(x, true)));
+}
+
+function choisir(n) {
+  t.choose(n);
+  afficher();
+}
+
+function place(n, rang) {
+  const d = document.createElement('div'); d.className = 'place p' + rang;
+  const nomEl = document.createElement('div'); nomEl.className = 'nom'; nomEl.textContent = n;
+  if (url(n)) { const img = creerImage(n); img.onclick = null; d.append(img); }
+  else { const x = document.createElement('p'); x.className = 'manque'; x.textContent = 'Fichier introuvable.'; d.append(x); }
+  d.append(nomEl);
+  const socle = document.createElement('div'); socle.className = 'socle'; socle.textContent = ['🥇', '🥈', '🥉'][rang - 1];
+  socle.setAttribute('aria-label', rang + (rang === 1 ? 'er' : 'e') + ' place');
+  d.append(socle);
+  return d;
+}
+
+function fin() {
+  $('#duel').hidden = true; $('#fin').hidden = false;
+  const pod = t.podium;
+  $('#podium').hidden = !pod; $('#champion').hidden = !!pod;
+  if (pod) {
+    const g = document.createElement('div'); g.className = 'podium';
+    [[pod.premier, 1], [pod.deuxieme, 2], ...(pod.troisieme ? [[pod.troisieme, 3]] : [])].forEach(([n, r]) => g.append(place(n, r)));
+    const h = document.createElement('div'); h.className = 'etiquette'; h.textContent = 'Podium';
+    $('#podium').replaceChildren(h, g);
+    return;
+  }
+  const c = carte(t.champion, false);
+  const h = document.createElement('div'); h.className = 'etiquette'; h.textContent = 'Ton image préférée';
+  $('#champion').replaceChildren(h, ...c.childNodes);
+}
+
+function exporter() {
+  Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X, P: t.P }, ...t.snapshot() }, 'sauvegarde-tournoi-image.json');
+}
+
+$('#exp').onclick = $('#exp2').onclick = exporter;
+$('#quit').onclick = () => {
+  if (!confirm("Abandonner le tournoi en cours ? Pense à exporter la sauvegarde avant.")) return;
+  t = null; save = null; $('#import').value = ''; $('#duel').hidden = true; $('#setup').hidden = false; majInfo();
+};
+$('#nouveau').onclick = () => { t = null; save = null; $('#import').value = ''; $('#fin').hidden = true; $('#setup').hidden = false; majInfo(); };
+
+document.addEventListener('keydown', e => {
+  if (!t || !t.duel || $('#duel').hidden || $('#zoom').open || e.target.tagName === 'INPUT') return;
+  const liste = t.duel.membres || [t.duel.a, t.duel.b], x = liste[parseInt(e.key, 10) - 1];
+  if (x) choisir(x);
+});
+window.onbeforeunload = () => (t && t.duel ? '' : undefined);
+majInfo();
+</script>
+</body>
+</html>

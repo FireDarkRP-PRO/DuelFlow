@@ -10,6 +10,7 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 |------|------|------|
 | Mode musical | `Tournois/musique.html` | Disponible |
 | Pokémon | `Tournois/pokemon.html` | Disponible |
+| Image | `Tournois/image.html` | Disponible |
 
 ## Arborescence
 
@@ -25,6 +26,7 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 │       └── formesRegionales.txt  Formes régionales (« 19;rattata-alola;Rattata d'Alola »)
 └── Tournois/
     ├── musique.html          Tournoi musical
+    ├── image.html            Tournoi d'images
     └── pokemon.html          Tournoi Pokémon
 ```
 
@@ -36,6 +38,10 @@ Le site fonctionne entièrement dans le navigateur et est prévu pour **GitHub P
 4. À chaque duel, écoute les deux titres avec les lecteurs et clique sur **Choisir** (ou touche `1` pour la gauche, `2` pour la droite).
 
 > La sélection d'un dossier fonctionne sur ordinateur. La plupart des navigateurs mobiles ne la proposent pas.
+
+## Utiliser le mode Image
+
+Même principe que le mode musical, avec des images à la place des MP3 : choisis le **dossier** d'images (PNG, JPEG, WebP, GIF, AVIF, BMP, SVG…, sous-dossiers inclus). Chaque image est identifiée par son nom de fichier sans extension (avec l'extension si deux fichiers portent le même nom). Clique sur une image pour l'agrandir. Les réglages et la sauvegarde sont identiques : pour reprendre, ajoute le fichier de sauvegarde **et** choisis le même dossier.
 
 ## Utiliser le mode Pokémon
 
