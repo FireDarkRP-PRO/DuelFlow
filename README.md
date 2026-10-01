@@ -60,7 +60,11 @@ Le site a besoin d'internet pour PokéAPI. Si l'API ne répond pas, la carte l'i
 Si, à la dernière phase de groupes, le nombre de qualifiés prévu (selon « Qualifiés par groupe ») est inférieur au nombre exigé par le stade choisi, un **pop-up** te laisse décider :
 
 - **Monter à 2X qualifiés** : on garde le stade choisi et on qualifie des éléments en plus (les meilleurs suivants de chaque groupe) ;
-- **Changer le début du tableau** : on choisit un autre stade plus adapté (le plus proche du nombre de qualifiés est indiqué « le plus adapté »). Le nouveau stade est enregistré dans la sauvegarde.
+- **Changer le début du tableau** : on choisit un autre stade plus adapté (le plus proche du nombre de qualifiés est indiqué « le plus adapté ») ;
+- **Changer la taille des groupes** : un champ affiche en direct le nombre de qualifiés obtenu (une taille qui tombe pile est proposée si elle existe), les groupes sont redécoupés et la vérification est refaite ;
+- **← Retour aux réglages** : on revient à l'écran de départ pour tout modifier (le tournoi repart de zéro avec les mêmes participants, après confirmation).
+
+Le nouveau stade et la nouvelle taille de groupe sont enregistrés dans la sauvegarde.
 
 Les points de victoire et de défaite ne peuvent pas être tous les deux à 0, sinon les groupes ne pourraient jamais être départagés.
 
@@ -108,5 +112,5 @@ Limite : un groupe ou un tour en cours est rejoué depuis son début à la repri
 
 1. Crée une page dans `Tournois/` (par exemple `films.html`) qui charge `../Ressource/style.css` et `../Ressource/tournoi.js`.
 2. Utilise le moteur : `Tournoi.create(elements, { P, Q, X, Y, Z, tableau, rapide }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
-3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)` (si `t.duel.kind === 'choix'`, affiche le pop-up avec `ChoixTableau.ouvrir(t.duel, rep => { t.choose(rep); … })`, et sauvegarde `t.X` avec les réglages), récupère l'état à sauvegarder avec `t.snapshot()`, et le podium final avec `t.podium` (`premier`, `deuxieme`, `troisieme`).
+3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)` (si `t.duel.kind === 'choix'`, affiche le pop-up avec `ChoixTableau.ouvrir(t.duel, rep => …)` : la réponse est `{ action: 'monter' | 'changer' | 'taille' }` à passer à `t.choose`, ou `{ action: 'retour' }` à gérer par la page ; sauvegarde `t.X` et `t.P` avec les réglages), récupère l'état à sauvegarder avec `t.snapshot()`, et le podium final avec `t.podium` (`premier`, `deuxieme`, `troisieme`).
 4. Ajoute une tuile vers la nouvelle page dans `index.html`.

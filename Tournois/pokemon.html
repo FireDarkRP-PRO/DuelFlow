@@ -254,7 +254,13 @@ function afficher() {
     $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
     $('#etiquette').textContent = Tournoi.libelle(d); $('#progression').textContent = '';
     $('#scores').replaceChildren(); $('#cartes').replaceChildren();
-    return ChoixTableau.ouvrir(d, rep => { t.choose(rep); afficher(); });
+    return ChoixTableau.ouvrir(d, rep => {
+      if (rep.action === 'retour') {
+        if (!confirm("Retourner aux réglages ? Le tournoi en cours sera abandonné et repartira de zéro avec les mêmes participants.")) return afficher();
+        t = null; save = null; $('#import').value = ''; $('#duel').hidden = true; $('#setup').hidden = false; return majInfo();
+      }
+      t.choose(rep); afficher();
+    });
   }
   $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
   $('#etiquette').textContent = Tournoi.libelle(d);
@@ -294,7 +300,7 @@ function fin() {
   $('#champion').replaceChildren(el('div', 'etiquette', 'Ton Pokémon préféré'), carte(t.champion, false));
 }
 
-const exporter = () => Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X }, ...t.snapshot() }, 'sauvegarde-tournoi-pokemon.json');
+const exporter = () => Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X, P: t.P }, ...t.snapshot() }, 'sauvegarde-tournoi-pokemon.json');
 $('#exp').onclick = $('#exp2').onclick = exporter;
 $('#quit').onclick = () => {
   if (!confirm("Abandonner le tournoi en cours ? Pense à exporter la sauvegarde avant.")) return;

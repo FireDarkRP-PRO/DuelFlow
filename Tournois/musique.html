@@ -3,28 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tournoi Pokémon</title>
+<title>Tournoi musical</title>
 <link rel="stylesheet" href="../Ressource/style.css">
 </head>
 <body>
 <main>
   <p class="meta"><a href="../index.html">← Tous les tournois</a></p>
-  <h1>Tournoi Pokémon</h1>
+  <h1>Tournoi musical</h1>
 
   <section id="setup">
-    <p class="sous">Les Pokémon s'affrontent deux par deux jusqu'à ton préféré.</p>
+    <p class="sous">Tes MP3 s'affrontent deux par deux jusqu'à ton titre préféré.</p>
     <div class="panneau">
       <div class="params">
         <label class="champ">Sauvegarde (facultatif) : sans elle, c'est un nouveau tournoi
           <input type="file" id="import" accept=".json,application/json">
         </label>
+        <label class="champ">Dossier de musiques : avec une sauvegarde, choisis le même dossier qu'au départ
+          <input type="file" id="dossier" webkitdirectory multiple>
+        </label>
       </div>
       <div class="params">
-        <div class="champ" style="grid-column:1/-1">Générations qui participent
-          <div class="grille-gen" id="gens"></div>
-          <label class="champ case" id="blocReg" hidden><input type="checkbox" id="regionales"> Formes régionales (chacune compte comme un Pokémon à part entière)</label>
-        </div>
-        <label class="champ">Pokémon par groupe
+        <label class="champ">Musiques par groupe
           <input type="number" id="P" min="2" value="4"></label>
         <label class="champ">Qualifiés par groupe (moins que la taille du groupe)
           <input type="number" id="Q" min="1" value="1"></label>
@@ -46,7 +45,7 @@
             <input type="number" id="Z" min="0" value="0"></label>
         </div>
       </div>
-      <p class="meta" id="info" aria-live="polite">Chargement de la liste des Pokémon…</p>
+      <p class="meta" id="info" aria-live="polite"></p>
       <div class="barre">
         <button class="principal" id="lancer" disabled>Lancer le tournoi</button>
         <button id="retirer" hidden>Retirer la sauvegarde</button>
@@ -61,7 +60,7 @@
       <ul class="scores" id="scores"></ul>
     </div>
     <div class="duel" id="cartes"></div>
-    <p class="meta">Raccourcis : touches 1, 2, 3… dans l'ordre d'affichage. Données et images : PokéAPI.</p>
+    <p class="meta">Raccourcis : touches 1, 2, 3… dans l'ordre d'affichage.</p>
     <div class="barre">
       <button id="exp">Exporter la sauvegarde</button>
       <button id="quit">Abandonner</button>
@@ -70,7 +69,7 @@
 
   <section id="fin" hidden>
     <div id="podium" hidden></div>
-    <div id="champion"></div>
+    <div class="panneau carte" id="champion"></div>
     <div class="barre">
       <button id="exp2">Exporter la sauvegarde</button>
       <button class="principal" id="nouveau">Nouveau tournoi</button>
@@ -81,74 +80,43 @@
 <script src="../Ressource/tournoi.js"></script>
 <script>
 const $ = s => document.querySelector(s);
-const TYPE = 'tournoi-pokemon';
-const TYPES = {
-  normal: ['Normal', '#a8a77a'], fire: ['Feu', '#ee8130'], water: ['Eau', '#6390f0'], electric: ['Électrik', '#f7d02c'],
-  grass: ['Plante', '#7ac74c'], ice: ['Glace', '#96d9d6'], fighting: ['Combat', '#c22e28'], poison: ['Poison', '#a33ea1'],
-  ground: ['Sol', '#e2bf65'], flying: ['Vol', '#a98ff3'], psychic: ['Psy', '#f95587'], bug: ['Insecte', '#a6b91a'],
-  rock: ['Roche', '#b6a136'], ghost: ['Spectre', '#735797'], dragon: ['Dragon', '#6f35fc'], dark: ['Ténèbres', '#705746'],
-  steel: ['Acier', '#b7b7ce'], fairy: ['Fée', '#d685ad']
+const TYPE = 'tournoi-musique';
+let fichiers = new Map(), save = null, params = {}, t = null;
+const urls = new Map();
+const nom = f => f.name.replace(/\.mp3$/i, '');
+const url = n => {
+  if (!fichiers.has(n)) return null;
+  if (!urls.has(n)) urls.set(n, URL.createObjectURL(fichiers.get(n)));
+  return urls.get(n);
 };
-const STATS = { hp: 'PV', attack: 'Attaque', defense: 'Défense', 'special-attack': 'Att. Spé.', 'special-defense': 'Déf. Spé.', speed: 'Vitesse' };
-
-let tous = [], formes = [], gens = [], save = null, params = {}, t = null, cri = null;
-const analyse = k => { const m = k.match(/^(\d+)~(\S+)\s+(.+)$/); return m ? { id: parseInt(m[1], 10), slug: m[2], nom: m[3] } : { id: parseInt(k, 10), slug: null, nom: k.replace(/^\d+\s+/, '') }; };
-const idDe = k => analyse(k).id;
-const nomDe = k => analyse(k).nom;
-const genDe = k => { const i = gens.findIndex(g => idDe(k) >= g.min && idDe(k) <= g.max); return i < 0 ? 'x' : i; };
 const nomsSave = s => s.etape === 'bracket' ? [...s.upper, ...s.lower] : s.etape === 'groupes' ? s.musiques : [s.champion];
 const lireParams = () => { const P = Math.max(2, +$('#P').value || 4); return { tableau: $('#tableau').checked, rapide: $('#rapide').checked, P, Q: Math.min(P - 1, Math.max(1, +$('#Q').value || 1)), X: Math.max(1, +$('#X').value || 8), Y: +$('#Y').value, Z: Math.max(0, +$('#Z').value || 0) }; };
-const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-
-/* Listes : pokemon.txt (« 0001 Bulbizarre »), genPokemon.txt (« Gen1:1-151 »), formesRegionales.txt (« 19;rattata-alola;Rattata d'Alola ») */
-const lire = u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); });
-const dossier = '../Ressource/Pokemon/';
-Promise.all([lire(dossier + 'pokemon.txt'), lire(dossier + 'genPokemon.txt').catch(() => ''), lire(dossier + 'formesRegionales.txt').catch(() => '')])
-  .then(([txt, gtxt, ftxt]) => {
-    tous = [...new Set(txt.split(/\r?\n/).map(l => l.match(/^\s*(\d+)\s+(.+?)\s*$/)).filter(Boolean).map(m => `${m[1]} ${m[2]}`))];
-    gens = gtxt.split(/\r?\n/).map(l => l.match(/^\s*(.+?)\s*:\s*(\d+)\s*-\s*(\d+)/)).filter(Boolean).map(m => ({ nom: m[1], min: +m[2], max: +m[3] }));
-    formes = [...new Set(ftxt.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#')).map(l => l.split(';').map(x => x.trim())).filter(p => /^\d+$/.test(p[0]) && p[1] && p[2]).map(p => `${p[0].padStart(4, '0')}~${p[1]} ${p[2]}`))];
-    $('#blocReg').hidden = !formes.length;
-    construireGens(); majInfo();
-  })
-  .catch(() => { $('#info').textContent = "Impossible de lire Ressource/Pokemon/pokemon.txt. Ouvre le site via GitHub Pages (ou un serveur local), pas en double-cliquant sur le fichier."; });
-
-/* Cases à cocher des générations, construites depuis genPokemon.txt */
-function construireGens() {
-  const cases = gens.map((g, i) => {
-    const l = el('label', 'champ case');
-    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = true; c.dataset.gen = i; c.onchange = majInfo;
-    l.append(c, g.nom.replace(/^gen\s*(\d+)/i, 'Gén. $1'));
-    return l;
-  });
-  $('#gens').replaceChildren(...(cases.length ? cases : [el('span', 'meta', 'Tous les Pokémon de la liste participent.')]));
-}
-// Une forme régionale compte comme un Pokémon à part entière ; elle ne dépend pas des cases de génération.
-const participants = () => [
-  ...tous.filter(k => { const c = $(`#gens input[data-gen="${genDe(k)}"]`); return !c || c.checked; }),
-  ...($('#regionales').checked ? formes : [])
-];
 
 function majInfo() {
   const pv = Math.max(2, +$('#P').value || 4); $('#Q').max = pv - 1; if (+$('#Q').value > pv - 1 || +$('#Q').value < 1) $('#Q').value = Math.min(pv - 1, Math.max(1, +$('#Q').value || 1));
   const m = [];
+  m.push(fichiers.size ? `${fichiers.size} MP3 trouvés dans le dossier.` : 'Aucun dossier choisi.');
   if (save) {
-    const noms = nomsSave(save);
-    m.push(`Sauvegarde chargée : ${noms.length} Pokémon encore en lice.`);
     if (save.etape === 'groupes' && save.restants) m.push(`Reprise à la phase ${save.phase}, groupe ${(save.fait ?? save.gagnants.length) + 1} sur ${(save.fait ?? save.gagnants.length) + save.restants.length}.`);
-  } else if (tous.length) {
-    m.push(`${tous.length} Pokémon dans la liste, ${participants().length} participent${$('#regionales').checked ? ` (dont ${formes.length} formes régionales)` : ''}.`);
-    if (!$('#tableau').checked) m.push(+$('#P').value === 2 ? 'Sans tableau et avec 2 Pokémon par groupe : 1 contre 1 pur.' : "Sans tableau : les groupes s'enchaînent jusqu'à un seul gagnant (mets 2 Pokémon par groupe pour du 1 contre 1 pur).");
-  } else return;
+    const noms = nomsSave(save), manquants = noms.filter(n => !fichiers.has(n));
+    m.push(`Sauvegarde chargée : ${noms.length} musique(s) encore en lice. Les MP3 ajoutés depuis le début du tournoi sont ignorés.`);
+    if (fichiers.size && manquants.length)
+      m.push(`Attention : ${manquants.length} musique(s) de la sauvegarde introuvable(s) dans ce dossier (${manquants.slice(0, 3).join(', ')}${manquants.length > 3 ? '…' : ''}). Un message remplacera leur son.`);
+  } else if (fichiers.size) m.push('Nouveau tournoi : tous ces MP3 participent.');
+  if (!save && !$('#tableau').checked) m.push(+$('#P').value === 2 ? 'Sans tableau et avec 2 musiques par groupe : 1 contre 1 pur.' : 'Sans tableau : les groupes s\'enchaînent jusqu\'à un seul gagnant (mets 2 musiques par groupe pour du 1 contre 1 pur).');
   $('#info').textContent = m.join(' ');
-  $('#lancer').disabled = save ? false : participants().length < 2;
+  $('#lancer').disabled = !fichiers.size || (!save && fichiers.size < 2);
   ['P', 'Q', 'X', 'Y', 'Z', 'tableau', 'rapide'].forEach(k => $('#' + k).disabled = !!save);
   document.querySelector('.duo').hidden = $('#rapide').checked;
-  document.querySelectorAll('#gens input').forEach(c => c.disabled = !!save);
-  $('#regionales').disabled = !!save;
   $('#blocX').hidden = !$('#tableau').checked;
   $('#retirer').hidden = !save;
 }
+
+$('#dossier').onchange = e => {
+  fichiers = new Map(); urls.clear();
+  [...e.target.files].filter(f => /\.mp3$/i.test(f.name)).forEach(f => fichiers.set(nom(f), f));
+  majInfo();
+};
 
 $('#import').onchange = async e => {
   try {
@@ -160,18 +128,18 @@ $('#import').onchange = async e => {
     if (!$('#X').value) $('#X').value = '8';
     $('#tableau').checked = !(d.params && d.params.tableau === false);
     $('#rapide').checked = !!(d.params && d.params.rapide);
-    tous.length ? majInfo() : ($('#info').textContent = 'Sauvegarde chargée, lecture de la liste en cours…');
-    $('#lancer').disabled = false; $('#retirer').hidden = false;
+    majInfo();
   } catch (err) { $('#info').textContent = 'Import impossible : ' + err.message; e.target.value = ''; }
 };
-$('#rapide').onchange = $('#tableau').onchange = $('#P').oninput = $('#Q').onchange = $('#regionales').onchange = majInfo;
+
+$('#rapide').onchange = $('#tableau').onchange = $('#P').oninput = $('#Q').onchange = majInfo;
 $('#retirer').onclick = () => { save = null; $('#import').value = ''; majInfo(); };
 
 $('#lancer').onclick = () => {
   params = save && save.params ? { ...save.params } : lireParams();
-  if (!params.rapide && !(params.Y + params.Z > 0)) { $('#info').textContent = 'Les points de victoire et de défaite ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
+  if (!params.rapide && !(params.Y + params.Z > 0)) { $('#info').textContent = 'Y et Z ne peuvent pas être tous les deux à 0 : aucun groupe ne pourrait être départagé.'; return; }
   let items, reprise = null;
-  if (!save) items = participants();
+  if (!save) items = [...fichiers.keys()];
   else if (save.etape === 'bracket') { items = nomsSave(save); reprise = { etape: 'bracket', ub: save.upper, lb: save.lower, r: save.r, troisieme: save.troisieme }; }
   else if (save.etape === 'groupes') { items = save.musiques; reprise = { etape: 'groupes', phase: save.phase, restants: save.restants, gagnants: save.gagnants, debut: save.debut, fait: save.fait, quotas: save.quotas }; }
   else { items = []; reprise = save; }
@@ -179,71 +147,31 @@ $('#lancer').onclick = () => {
   afficher();
 };
 
-/* PokéAPI (résultats gardés en cache) */
-const cache = new Map();
-const api = (ep, id) => fetch(`https://pokeapi.co/api/v2/${ep}/${id}`).then(r => { if (!r.ok) throw new Error(); return r.json(); });
-const NORM = { paldean: 'paldea', alolan: 'alola', galarian: 'galar', hisuian: 'hisui' };
-const jetons = n => n.split('-').map(t => NORM[t] || t);
-async function resoudre(slug, baseId) {
-  let p;
-  try { p = await api('pokemon', slug); }
-  catch { // slug inconnu de PokéAPI : on cherche la variété de l'espèce qui lui ressemble le plus
-    const sp = await api('pokemon-species', baseId), cible = jetons(slug);
-    let best = null, score = 0;
-    sp.varieties.forEach(v => { const sc = jetons(v.pokemon.name).filter(t => cible.includes(t)).length; if (sc > score) { score = sc; best = v.pokemon.name; } });
-    if (!best || score < 2) throw new Error(slug);
-    p = await api('pokemon', best);
-  }
-  if (!(p.cries && (p.cries.latest || p.cries.legacy))) { const b = await api('pokemon', baseId).catch(() => null); if (b) p.cries = b.cries; }
-  return p;
+function creerAudio(n, disque) {
+  const a = document.createElement('audio');
+  a.controls = true; a.preload = 'none'; a.src = url(n);
+  a.onplay = () => { document.querySelectorAll('audio').forEach(x => x !== a && x.pause()); disque.classList.add('joue'); };
+  a.onpause = a.onended = () => disque.classList.remove('joue');
+  return a;
 }
-const infos = k => {
-  if (!cache.has(k)) cache.set(k, (async () => {
-    const { id, slug } = analyse(k);
-    const [p, s] = await Promise.allSettled([slug ? resoudre(slug, id) : api('pokemon', id), api('pokemon-species', id)]);
-    if (!p.value) cache.delete(k);
-    return { p: p.value, s: s.value };
-  })());
-  return cache.get(k);
-};
-const texteSur = hex => { const n = parseInt(hex.slice(1), 16), l = .299 * (n >> 16) + .587 * ((n >> 8) & 255) + .114 * (n & 255); return l > 150 ? '#1b1526' : '#fff'; };
 
-function carte(k, avecBouton) {
-  const c = el('article', 'panneau carte');
-  const img = el('div', 'pokeimg vide', '…');
-  const corps = el('div', 'corps');
-  c.append(img, el('p', 'numero', `N° ${String(idDe(k)).padStart(4, '0')}${analyse(k).slug ? ' · forme régionale' : ''}`), el('h2', null, nomDe(k)), corps);
-  corps.append(el('p', 'meta', 'Chargement des informations…'));
-  if (avecBouton) {
-    const b = el('button', 'principal', 'Choisir'); b.onclick = () => choisir(k); c.append(b);
+function carte(n, avecBouton) {
+  const c = document.createElement('article');
+  c.className = 'panneau carte';
+  const disque = document.createElement('div'); disque.className = 'disque';
+  const h = document.createElement('h2'); h.textContent = n;
+  c.append(disque, h);
+  if (url(n)) c.append(creerAudio(n, disque));
+  else {
+    const p = document.createElement('p'); p.className = 'manque';
+    p.textContent = 'Fichier introuvable : cette musique a été supprimée, renommée ou déplacée depuis la sauvegarde.';
+    c.append(p);
   }
-  infos(k).then(({ p, s }) => {
-    if (!c.isConnected) return;
-    corps.replaceChildren();
-    if (!p) { corps.append(el('p', 'manque', "Informations indisponibles (PokéAPI injoignable ou Pokémon inconnu). Tu peux quand même voter.")); img.textContent = '?'; return; }
-    const src = (p.sprites.other && p.sprites.other['official-artwork'].front_default) || p.sprites.front_default;
-    if (src) { const i = el('img', 'pokeimg'); i.src = src; i.alt = nomDe(k); i.loading = 'lazy'; img.replaceWith(i); } else img.textContent = 'Pas d\'image';
-    const types = el('div', 'types');
-    p.types.forEach(({ type }) => { const [fr, col] = TYPES[type.name] || [type.name, '#888']; const x = el('span', 'type', fr); x.style.background = col; x.style.color = texteSur(col); types.append(x); });
-    corps.append(types);
-    const genre = s && (s.genera.find(g => g.language.name === 'fr') || {}).genus;
-    if (genre) corps.append(el('p', 'meta', genre));
-    corps.append(el('p', 'faits', `${p.height / 10} m · ${p.weight / 10} kg`));
-    const st = el('div', 'stats'); let total = 0;
-    p.stats.forEach(({ base_stat: v, stat }) => {
-      total += v;
-      const b = el('div', 'barre-stat'), i = document.createElement('i'); i.style.width = Math.min(100, v / 2.55) + '%'; b.append(i);
-      st.append(el('span', null, STATS[stat.name] || stat.name), el('span', null, v), b);
-    });
-    st.append(el('strong', null, 'Total'), el('strong', null, total), document.createElement('span'));
-    corps.append(st);
-    const url = p.cries && (p.cries.latest || p.cries.legacy);
-    if (url) {
-      const b = el('button', null, 'Écouter le cri');
-      b.onclick = () => { if (cri) cri.pause(); cri = new Audio(url); cri.play().catch(() => {}); };
-      corps.append(b);
-    }
-  });
+  if (avecBouton) {
+    const b = document.createElement('button');
+    b.className = 'principal'; b.textContent = 'Choisir'; b.onclick = () => choisir(n);
+    c.append(b);
+  }
   return c;
 }
 
@@ -254,47 +182,64 @@ function afficher() {
     $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
     $('#etiquette').textContent = Tournoi.libelle(d); $('#progression').textContent = '';
     $('#scores').replaceChildren(); $('#cartes').replaceChildren();
-    return ChoixTableau.ouvrir(d, rep => { t.choose(rep); afficher(); });
+    return ChoixTableau.ouvrir(d, rep => {
+      if (rep.action === 'retour') {
+        if (!confirm("Retourner aux réglages ? Le tournoi en cours sera abandonné et repartira de zéro avec les mêmes participants.")) return afficher();
+        t = null; save = null; $('#import').value = ''; $('#duel').hidden = true; $('#setup').hidden = false; return majInfo();
+      }
+      t.choose(rep); afficher();
+    });
   }
   $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
   $('#etiquette').textContent = Tournoi.libelle(d);
   $('#progression').textContent = d.membres ? (d.total > 1 ? `Groupe rapide · qualifié n°${d.n} sur ${d.total} : clique sur le meilleur parmi ${d.membres.length}` : `Groupe rapide : clique sur le meilleur parmi ${d.membres.length}`) : `Duel ${d.n} sur ${d.total}`;
   const ul = $('#scores'); ul.replaceChildren();
-  if (d.scores) Object.entries(d.scores).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => ul.append(el('li', null, `${nomDe(k)} : ${v} pt`)));
+  if (d.scores) Object.entries(d.scores).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+    const li = document.createElement('li'); li.textContent = `${k} : ${v} pt`; ul.append(li);
+  });
   $('#cartes').className = d.membres ? 'duel multi' : 'duel';
   $('#cartes').replaceChildren(...(d.membres || [d.a, d.b]).map(x => carte(x, true)));
 }
 
-function choisir(k) { if (cri) cri.pause(); t.choose(k); afficher(); }
-
-function miniature(k) {
-  const box = el('div', 'pokeimg vide', '…');
-  infos(k).then(({ p }) => {
-    const src = p && ((p.sprites.other && p.sprites.other['official-artwork'].front_default) || p.sprites.front_default);
-    if (!src) { box.textContent = '?'; return; }
-    const i = el('img', 'pokeimg'); i.src = src; i.alt = nomDe(k); box.replaceWith(i);
-  });
-  return box;
+function choisir(n) {
+  document.querySelectorAll('audio').forEach(x => x.pause());
+  t.choose(n);
+  afficher();
 }
-function place(k, rang) {
-  const d = el('div', 'place p' + rang);
-  const socle = el('div', 'socle', ['🥇', '🥈', '🥉'][rang - 1]); socle.setAttribute('aria-label', rang + (rang === 1 ? 'er' : 'e') + ' place');
-  d.append(miniature(k), el('div', 'nom', nomDe(k)), socle);
+
+function place(n, rang) {
+  const d = document.createElement('div'); d.className = 'place p' + rang;
+  const disque = document.createElement('div'); disque.className = 'disque';
+  const nomEl = document.createElement('div'); nomEl.className = 'nom'; nomEl.textContent = n;
+  d.append(disque, nomEl);
+  if (url(n)) d.append(creerAudio(n, disque));
+  else { const x = document.createElement('p'); x.className = 'manque'; x.textContent = 'Fichier introuvable.'; d.append(x); }
+  const socle = document.createElement('div'); socle.className = 'socle'; socle.textContent = ['🥇', '🥈', '🥉'][rang - 1];
+  socle.setAttribute('aria-label', rang + (rang === 1 ? 'er' : 'e') + ' place');
+  d.append(socle);
   return d;
 }
+
 function fin() {
   $('#duel').hidden = true; $('#fin').hidden = false;
   const pod = t.podium;
-  $('#podium').hidden = !pod;
+  $('#podium').hidden = !pod; $('#champion').hidden = !!pod;
   if (pod) {
-    const g = el('div', 'podium');
-    [[pod.premier, 1], [pod.deuxieme, 2], ...(pod.troisieme ? [[pod.troisieme, 3]] : [])].forEach(([k, r]) => g.append(place(k, r)));
-    $('#podium').replaceChildren(el('div', 'etiquette', 'Podium'), g);
+    const g = document.createElement('div'); g.className = 'podium';
+    [[pod.premier, 1], [pod.deuxieme, 2], ...(pod.troisieme ? [[pod.troisieme, 3]] : [])].forEach(([n, r]) => g.append(place(n, r)));
+    const h = document.createElement('div'); h.className = 'etiquette'; h.textContent = 'Podium';
+    $('#podium').replaceChildren(h, g);
+    return;
   }
-  $('#champion').replaceChildren(el('div', 'etiquette', 'Ton Pokémon préféré'), carte(t.champion, false));
+  const c = carte(t.champion, false);
+  const h = document.createElement('div'); h.className = 'etiquette'; h.textContent = 'Ta musique préférée';
+  $('#champion').replaceChildren(h, ...c.childNodes);
 }
 
-const exporter = () => Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X }, ...t.snapshot() }, 'sauvegarde-tournoi-pokemon.json');
+function exporter() {
+  Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X, P: t.P }, ...t.snapshot() }, 'sauvegarde-tournoi-musical.json');
+}
+
 $('#exp').onclick = $('#exp2').onclick = exporter;
 $('#quit').onclick = () => {
   if (!confirm("Abandonner le tournoi en cours ? Pense à exporter la sauvegarde avant.")) return;
@@ -303,12 +248,12 @@ $('#quit').onclick = () => {
 $('#nouveau').onclick = () => { t = null; save = null; $('#import').value = ''; $('#fin').hidden = true; $('#setup').hidden = false; majInfo(); };
 
 document.addEventListener('keydown', e => {
-  if (!t || !t.duel || $('#duel').hidden || ['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+  if (!t || !t.duel || $('#duel').hidden || ['INPUT', 'AUDIO'].includes(e.target.tagName)) return;
   const liste = t.duel.membres || [t.duel.a, t.duel.b], x = liste[parseInt(e.key, 10) - 1];
   if (x) choisir(x);
 });
 window.onbeforeunload = () => (t && t.duel ? '' : undefined);
-$('#blocX').hidden = false;
+majInfo();
 </script>
 </body>
 </html>

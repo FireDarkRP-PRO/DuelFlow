@@ -70,3 +70,7 @@ dialog.popup::backdrop{background:rgba(0,0,0,.7)}
 .popup .choix{display:flex;flex-direction:column;gap:8px;margin-top:16px}
 .popup .choix button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
 .popup .choix small{font-size:.85rem;font-weight:400;opacity:.85}
+.popup .taille{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
+.popup .taille input{width:5.5rem}
+.popup .apercu{color:var(--doux);font-size:.85rem}
+dialog.popup{max-height:calc(100vh - 32px);overflow-y:auto}
