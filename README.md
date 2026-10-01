@@ -57,6 +57,11 @@ Le site a besoin d'internet pour PokéAPI. Si l'API ne répond pas, la carte l'i
 - **Points par victoire** : 3 par défaut.
 - **Points perdus par défaite** : 0 par défaut.
 
+Si, à la dernière phase de groupes, le nombre de qualifiés prévu (selon « Qualifiés par groupe ») est inférieur au nombre exigé par le stade choisi, un **pop-up** te laisse décider :
+
+- **Monter à 2X qualifiés** : on garde le stade choisi et on qualifie des éléments en plus (les meilleurs suivants de chaque groupe) ;
+- **Changer le début du tableau** : on choisit un autre stade plus adapté (le plus proche du nombre de qualifiés est indiqué « le plus adapté »). Le nouveau stade est enregistré dans la sauvegarde.
+
 Les points de victoire et de défaite ne peuvent pas être tous les deux à 0, sinon les groupes ne pourraient jamais être départagés.
 
 ## Déroulement d'un tournoi
@@ -103,5 +108,5 @@ Limite : un groupe ou un tour en cours est rejoué depuis son début à la repri
 
 1. Crée une page dans `Tournois/` (par exemple `films.html`) qui charge `../Ressource/style.css` et `../Ressource/tournoi.js`.
 2. Utilise le moteur : `Tournoi.create(elements, { P, Q, X, Y, Z, tableau, rapide }, onEliminate, reprise)`. Les éléments sont des chaînes uniques. `tableau: false` désactive le tableau, et `X` vaut 16, 8, 4 ou 2.
-3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)`, récupère l'état à sauvegarder avec `t.snapshot()`, et le podium final avec `t.podium` (`premier`, `deuxieme`, `troisieme`).
+3. Lis le duel courant avec `t.duel`, enregistre le choix avec `t.choose(gagnant)` (si `t.duel.kind === 'choix'`, affiche le pop-up avec `ChoixTableau.ouvrir(t.duel, rep => { t.choose(rep); … })`, et sauvegarde `t.X` avec les réglages), récupère l'état à sauvegarder avec `t.snapshot()`, et le podium final avec `t.podium` (`premier`, `deuxieme`, `troisieme`).
 4. Ajoute une tuile vers la nouvelle page dans `index.html`.

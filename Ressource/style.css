@@ -62,3 +62,11 @@ select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bo
 .p1{order:2}.p2{order:1}.p3{order:3}
 .p1 .socle{height:110px;border-color:var(--accent)}.p2 .socle{height:80px}.p3 .socle{height:60px}
 @media(max-width:520px){.place .pokeimg{width:72px;height:72px}.place .disque{width:48px;height:48px}}
+dialog.popup{background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:14px;padding:20px;width:calc(100% - 32px);max-width:520px}
+dialog.popup::backdrop{background:rgba(0,0,0,.7)}
+.popup h2{margin:0 0 8px;font-size:1.25rem}
+.popup h3{margin:8px 0 0;font-size:.95rem;color:var(--doux)}
+.popup p{margin:0}
+.popup .choix{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.popup .choix button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+.popup .choix small{font-size:.85rem;font-weight:400;opacity:.85}

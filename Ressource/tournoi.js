@@ -12,7 +12,12 @@
    (liste unique en phase de groupes ; listes Upper et Lower séparées dans le tableau).
    podium : une fois le tournoi fini (tableau activé), { premier, deuxieme, troisieme } :
    1er = gagnant, 2e = perdant de la finale des finales, 3e = perdant de la finale du Lower Bracket.
-   Reprise : create(items, params, onEliminate, reprise) avec un ancien snapshot adapté. */
+   Reprise : create(items, params, onEliminate, reprise) avec un ancien snapshot adapté.
+   Choix du tableau : si, à la dernière phase de groupes, les qualifiés prévus (Q par groupe) sont moins nombreux
+   que les X × 2 éléments voulus, le moteur s'arrête sur un « duel » spécial { kind: 'choix', X, cible, naturel, options }.
+   On répond avec t.choose({ action: 'monter' }) (on garde X et on qualifie des éléments en plus)
+   ou t.choose({ action: 'changer', X: nouveauX }). t.X donne le X en cours (à sauvegarder avec les réglages).
+   ChoixTableau.ouvrir(d, rappel) affiche le pop-up correspondant et appelle rappel(reponse). */
 const Tournoi = (() => {
   const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pow2 = n => { let p = 1; while (p < n) p *= 2; return p; };
@@ -24,7 +29,7 @@ const Tournoi = (() => {
   function create(items, { P = 4, Q = 1, X = 8, Y = 3, Z = 0, tableau = true, rapide = false } = {}, onEliminate = () => {}, reprise = null) {
     const dead = new Set();
     const elim = m => { dead.add(m); onEliminate(m); };
-    const cible = tableau ? 2 * X : 1; // nombre d'éléments voulus à la fin des phases de groupes
+    let cible = tableau ? 2 * X : 1; // nombre d'éléments voulus à la fin des phases de groupes (X peut changer via le pop-up)
     let troisieme = (reprise && reprise.troisieme) || null, deuxieme = (reprise && reprise.deuxieme) || null;
     let ck = { etape: 'groupes', phase: 1, gs: [[...items]], qs: [1], g0: 0, g: 0, winners: [] };
 
@@ -106,7 +111,20 @@ const Tournoi = (() => {
             g0 = reste.fait != null ? reste.fait : winners.length;
             qs = reste.quotas ? [...reste.quotas] : quotas(gs, 0);
             debut = reste.debut || winners.length + gs.flat().length; reste = null;
-          } else { gs = split(pool, P); qs = quotas(gs, cible); winners = []; g0 = 0; debut = pool.length; }
+          } else {
+            gs = split(pool, P); winners = []; g0 = 0; debut = pool.length;
+            qs = quotas(gs, 0); // qualifiés « naturels » : Q par groupe, sans complément
+            const naturel = qs.reduce((a, b) => a + b, 0);
+            if (tableau && naturel < cible) { // le tableau ne tomberait pas pile : on demande à l'utilisateur
+              const options = [16, 8, 4, 2].filter(x => x !== X && 2 * x <= pool.length)
+                .map(x => ({ X: x, cible: 2 * x, ecart: 2 * x - naturel }))
+                .sort((a, b) => Math.abs(a.ecart) - Math.abs(b.ecart) || b.X - a.X);
+              ck = { etape: 'groupes', phase, gs, qs, g0, g: 0, winners, debut };
+              const rep = yield { kind: 'choix', X, cible, naturel, total: pool.length, options };
+              if (rep && rep.action === 'changer' && rep.X) { X = rep.X; cible = 2 * X; }
+            }
+            qs = quotas(gs, cible);
+          }
           const stade = !tableau && debut <= 32 ? stageName(pow2(debut)) : '';
           ck = { etape: 'groupes', phase, gs, qs, g0, g: 0, winners, debut };
           for (let g = 0; g < gs.length; g++) {
@@ -156,6 +174,7 @@ const Tournoi = (() => {
     let cur = gen.next();
     return {
       get duel() { return cur.done ? null : cur.value; },
+      get X() { return X; },
       get champion() { return cur.done ? cur.value : null; },
       get podium() { return cur.done && deuxieme ? { premier: cur.value, deuxieme, troisieme } : null; },
       choose(gagnant) { cur = gen.next(gagnant); },
@@ -170,11 +189,11 @@ const Tournoi = (() => {
     };
   }
 
-  const libelle = d => d.kind === 'group'
+  const libelle = d => d.kind === 'choix' ? 'Réglage du tableau' : d.kind === 'group'
     ? `${d.stade ? d.stade + ' · ' : ''}Phase d'élimination · Phase ${d.phase}, Groupe ${d.g} sur ${d.groups}${d.tiebreak ? ' · Départage' : ''}`
     : `${d.side}${d.stage ? ' · ' + d.stage : ''}`;
 
-  return { create, libelle };
+  return { create, libelle, stade: stageName };
 })();
 
 /* Export / import d'une sauvegarde JSON */
@@ -189,5 +208,41 @@ const Sauvegarde = {
     const d = JSON.parse(await fichier.text());
     if (d.type !== type) throw new Error("Ce fichier n'est pas une sauvegarde de ce tournoi.");
     return d;
+  }
+};
+
+/* Pop-up « le tableau ne tombe pas juste » : monter le nombre de qualifiés à X × 2, ou changer le stade de départ */
+const ChoixTableau = {
+  ouvrir(d, repondre) {
+    document.querySelectorAll('dialog.popup').forEach(x => x.remove());
+    const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+    const stade = x => Tournoi.stade(2 * x);
+    const dlg = el('dialog', 'popup');
+    dlg.setAttribute('aria-labelledby', 'popup-titre');
+    dlg.addEventListener('cancel', e => e.preventDefault()); // pas de fermeture sans choisir
+    const bouton = (cls, titre, detail, rep) => {
+      const b = el('button', cls, titre); b.append(el('small', null, detail));
+      b.onclick = () => { dlg.close(); dlg.remove(); repondre(rep); };
+      return b;
+    };
+    const titre = el('h2', null, 'Le tableau ne tombe pas juste'); titre.id = 'popup-titre';
+    const manque = d.cible - d.naturel;
+    dlg.append(titre, el('p', null, `À la fin de cette phase, il y aurait ${d.naturel} qualifié(s), mais le ${stade(d.X)} démarre avec exactement ${d.cible} éléments. Que veux-tu faire ?`));
+    const garder = el('div', 'choix');
+    garder.append(bouton('principal', `Monter à ${d.cible} qualifiés`, `On garde le ${stade(d.X)} : ${manque} qualifié(s) de plus sont pris dans les groupes (les meilleurs suivants).`, { action: 'monter' }));
+    dlg.append(garder);
+    if (d.options.length) {
+      const autres = el('div', 'choix');
+      autres.append(el('h3', null, 'Ou changer le début du tableau'));
+      d.options.forEach((o, i) => {
+        const detail = o.ecart > 0 ? `${o.cible} éléments : ${o.ecart} qualifié(s) de plus sont pris dans les groupes.`
+          : o.ecart === 0 ? `${o.cible} éléments : ça tombe pile, rien à ajouter.`
+          : `${o.cible} éléments : une phase de groupes en plus sera jouée pour passer de ${d.naturel} à ${o.cible}.`;
+        autres.append(bouton('', stade(o.X) + (i === 0 ? ' (le plus adapté)' : ''), detail, { action: 'changer', X: o.X }));
+      });
+      dlg.append(autres);
+    }
+    document.body.append(dlg);
+    dlg.showModal();
   }
 };

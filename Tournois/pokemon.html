@@ -250,6 +250,12 @@ function carte(k, avecBouton) {
 function afficher() {
   const d = t.duel;
   if (!d) return fin();
+  if (d.kind === 'choix') {
+    $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
+    $('#etiquette').textContent = Tournoi.libelle(d); $('#progression').textContent = '';
+    $('#scores').replaceChildren(); $('#cartes').replaceChildren();
+    return ChoixTableau.ouvrir(d, rep => { t.choose(rep); afficher(); });
+  }
   $('#setup').hidden = true; $('#fin').hidden = true; $('#duel').hidden = false;
   $('#etiquette').textContent = Tournoi.libelle(d);
   $('#progression').textContent = d.membres ? (d.total > 1 ? `Groupe rapide · qualifié n°${d.n} sur ${d.total} : clique sur le meilleur parmi ${d.membres.length}` : `Groupe rapide : clique sur le meilleur parmi ${d.membres.length}`) : `Duel ${d.n} sur ${d.total}`;
@@ -288,7 +294,7 @@ function fin() {
   $('#champion').replaceChildren(el('div', 'etiquette', 'Ton Pokémon préféré'), carte(t.champion, false));
 }
 
-const exporter = () => Sauvegarde.exporter(TYPE, { params, ...t.snapshot() }, 'sauvegarde-tournoi-pokemon.json');
+const exporter = () => Sauvegarde.exporter(TYPE, { params: { ...params, X: t.X }, ...t.snapshot() }, 'sauvegarde-tournoi-pokemon.json');
 $('#exp').onclick = $('#exp2').onclick = exporter;
 $('#quit').onclick = () => {
   if (!confirm("Abandonner le tournoi en cours ? Pense à exporter la sauvegarde avant.")) return;
